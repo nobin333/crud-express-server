@@ -5,11 +5,13 @@ import path from "path"
 const app = express()
 const port = 5000
 
-dotenv.config({path: path.join(process.cwd(), ".env")})
+dotenv.config({ path: path.join(process.cwd(), ".env") });
 // Database
 const pool = new Pool({
-    connectionString: '${process.env.CONNECTION_STRING}'
+    connectionString: process.env.CONNECTION_STRING,
 })
+
+
 
 const initDB = async () => {
     await pool.query(`
@@ -23,9 +25,9 @@ const initDB = async () => {
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
         )
-        `)
+        `);
 
-        await pool.query(`
+    await pool.query(`
             CREATE TABLE IF NOT EXISTS todos(
             id SERIAL PRIMARY KEY,
             user_id INT REFERENCES users(id) ON DELETE CASCADE,
@@ -38,7 +40,7 @@ const initDB = async () => {
             )
             `);
 }
-initDB()
+ initDB()
 
 
 
@@ -52,12 +54,29 @@ app.use(express.json())
 app.get('/', (req: Request, res: Response) => {
     res.send('Hello World!')
 })
-app.post("/", (req: Request, res: Response) => {
-    console.log(req.body)
-    res.status(201).json({
-        success: true,
-        message: "API is working"
-    })
+
+//users CRUD post
+app.post("/users", async (req: Request, res: Response) => {
+    const { name, email } = req.body
+    try {
+        const result = await pool.query(
+            `INSERT INTO users(name, email) VALUES($1, $2) RETURNING *`, [name, email]
+        )
+        res.status(201).json({
+            success: true,
+            message: "Data Instered Successfully",
+            data: result.rows[0],
+        })
+    } catch (error: any) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        })
+    }
+    // res.status(201).json({
+    //     success: true,
+    //     message: "API is working"
+    // })
 })
 
 app.listen(port, () => {

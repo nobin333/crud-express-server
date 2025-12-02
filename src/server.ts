@@ -42,6 +42,12 @@ const initDB = async () => {
 }
 initDB()
 
+// logger middleware
+const logger = (req: Request, res: Response, next: Function) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}\n`);
+  next();
+};
+
 // Parser
 app.use(express.json())
 // app.use(express.urlencoded())
@@ -213,7 +219,7 @@ app.get("/todos", async (req: Request, res: Response) => {
     }
 });
 
-// Get single todo
+// todos crud get single
 app.get("/todos/:id", async (req, res) => {
     try {
         const result = await pool.query("SELECT * FROM todos WHERE id = $1", [
@@ -229,6 +235,55 @@ app.get("/todos/:id", async (req, res) => {
         console.log(err);
         res.status(500).json({ error: "Failed to fetch todo" });
     }
+});
+
+// todos crud update
+app.put("/todos/:id", async (req, res) => {
+    const { title, completed } = req.body;
+
+    try {
+        const result = await pool.query(
+            "UPDATE todos SET title=$1, completed=$2 WHERE id=$3 RETURNING *",
+            [title, completed, req.params.id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "Todo not found" });
+        }
+
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.log(err);
+        res.status(500).json({ error: "Failed to update todo" });
+    }
+});
+
+// todos crud delete
+app.delete("/todos/:id", async (req, res) => {
+    try {
+        const result = await pool.query(
+            "DELETE FROM todos WHERE id=$1 RETURNING *",
+            [req.params.id]
+        );
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: "Todo not found" });
+        }
+
+        res.json({ success: true, message: "Todo deleted", data: null });
+    } catch (err) {
+        console.log(err);
+        res.status(500).json({ error: "Failed to delete todo" });
+    }
+});
+
+//route not found api
+app.use((req, res) => {
+    res.status(404).json({
+        success: false,
+        message: "Route not found",
+        path: req.path,
+    });
 });
 
 app.listen(port, () => {
